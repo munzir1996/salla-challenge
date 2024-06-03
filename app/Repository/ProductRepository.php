@@ -67,4 +67,16 @@ class ProductRepository implements IProductRepository
             return $products;
         }
     }
+
+    public function insertOrUpdateApi($product)
+    {
+        // $query = $this->pdo->prepare('INSERT INTO products (id, name, sku, price, currency, variations, quantity, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        //             ON DUPLICATE KEY UPDATE name=VALUES(name), sku=VALUES(sku), price=VALUES(price), currency=VALUES(currency), variations=VALUES(variations), quantity=VALUES(quantity), status=VALUES(status)');
+        $query = $this->pdo->prepare('INSERT INTO products (id, name, sku, price, currency, variations, quantity, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    ON DUPLICATE KEY UPDATE name=VALUES(name), sku=VALUES(sku), price=VALUES(price), currency=VALUES(currency), variations=VALUES(variations), quantity=VALUES(quantity), status=VALUES(status)');
+
+        $result = $query->execute([$product['id'], ($product['name'] ?? ''), ($product[1] ?? ''), ($product['price'] ?? ''), ($product[1] ?? ''), ($product['variations'] ?? ''), ($product[1] ?? ''), ($product[1] ?? '')]);
+
+        return $result;
+    }
 }

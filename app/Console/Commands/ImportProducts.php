@@ -42,8 +42,6 @@ class ImportProducts extends Command
     {
         // Rename from products1.csv into products2.csv to import a file with slightly different data
 
-        $this->productRepository->getApi('https://5fc7a13cf3c77600165d89a8.mockapi.io/api/v5/products');
-
         $lines = $this->readFile('products-test.csv');
 
         $collectionLines = new Collection($lines);

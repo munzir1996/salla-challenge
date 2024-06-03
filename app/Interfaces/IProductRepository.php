@@ -14,4 +14,6 @@ interface IProductRepository
     public function insertOrUpdatePdo($fields);
 
     public function getApi($url);
+
+    public function insertOrUpdateApi($product);
 }
