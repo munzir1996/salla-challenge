@@ -5,6 +5,7 @@ namespace App\Repository;
 use App\Interfaces\IProductRepository;
 use PDO;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Http;
 
 class ProductRepository implements IProductRepository
 {
@@ -55,5 +56,15 @@ class ProductRepository implements IProductRepository
         $result = $query->execute([$fields[0], ($fields[1] ?? ''), ($fields[2] ?? ''), ($fields[3] ?? ''), ($fields[4] ?? ''), ($fields[5] ?? ''), ($fields[6] ?? ''), ($fields[7] ?? '')]);
 
         return $result;
+    }
+
+    public function getApi($url)
+    {
+        $response = Http::get($url);
+        $products = $response->json();
+
+        if ($response->ok()) {
+            return $products;
+        }
     }
 }

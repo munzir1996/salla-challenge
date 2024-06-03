@@ -12,4 +12,6 @@ interface IProductRepository
     public function softDeletePdo($rowsCollectId, $collectionLinesId);
 
     public function insertOrUpdatePdo($fields);
+
+    public function getApi($url);
 }
