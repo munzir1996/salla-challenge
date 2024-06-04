@@ -24,10 +24,11 @@ class ProductRepository implements IProductRepository
         return $query;
     }
 
-    public function deletePdo($id)
+    public function deletePdo($arrayId)
     {
-        $query = $this->pdo->prepare('DELETE FROM products WHERE id = ?');
-        $result = $query->execute([$id]);
+        $ids = implode("','", $arrayId);
+        $query = $this->pdo->prepare("DELETE FROM products WHERE id IN ('" . $ids . "')");
+        $result = $query->execute();
 
         return $result;
     }
@@ -35,14 +36,16 @@ class ProductRepository implements IProductRepository
     public function softDeletePdo($rowsCollectId, $collectionLinesId)
     {
         // Implement the soft delete logic here
-        foreach ($rowsCollectId as $productId) {
-            if (!in_array($productId, $collectionLinesId)) {
+        $productArrayIds = array_diff($rowsCollectId, $collectionLinesId);
+
+        if (!empty($productArrayIds)) {
+            foreach ($productArrayIds as $rowProductId) {
                 $query = $this->pdo->prepare("UPDATE products SET deleted_at = NOW(), delete_hint = ? WHERE id = ?");
-                $result = $query->execute([config('constants.deletionReason'), $productId]);
+                $result = $query->execute([config('constants.deletionReason'), $rowProductId]);
                 if ($result) {
-                    print("Soft Deleted product with ID $productId due to synchronization issue.");
+                    print("Soft Deleted product with ID $rowProductId due to synchronization issue.");
                 } else {
-                    print("Error soft deleting product with ID $productId.");
+                    print("Error soft deleting product with ID $rowProductId.");
                 }
             }
         }
@@ -70,12 +73,10 @@ class ProductRepository implements IProductRepository
 
     public function insertOrUpdateApi($product)
     {
-        // $query = $this->pdo->prepare('INSERT INTO products (id, name, sku, price, currency, variations, quantity, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        //             ON DUPLICATE KEY UPDATE name=VALUES(name), sku=VALUES(sku), price=VALUES(price), currency=VALUES(currency), variations=VALUES(variations), quantity=VALUES(quantity), status=VALUES(status)');
-        $query = $this->pdo->prepare('INSERT INTO products (id, name, sku, price, currency, variations, quantity, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                    ON DUPLICATE KEY UPDATE name=VALUES(name), sku=VALUES(sku), price=VALUES(price), currency=VALUES(currency), variations=VALUES(variations), quantity=VALUES(quantity), status=VALUES(status)');
 
-        $result = $query->execute([$product['id'], ($product['name'] ?? ''), ($product[1] ?? ''), ($product['price'] ?? ''), ($product[1] ?? ''), ($product['variations'] ?? ''), ($product[1] ?? ''), ($product[1] ?? '')]);
+        $query = $this->pdo->prepare("UPDATE products SET name=?, price=?, variations=? WHERE id=? AND deleted_at IS NULL");
+
+        $result = $query->execute([($product['name'] ?? ''), ($product['price'] ?? ''), (json_encode($product['variations']) ?? ''), $product['id']]);
 
         return $result;
     }

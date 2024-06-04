@@ -126,3 +126,36 @@ class Wali extends Command
         }
     }
 }
+
+
+
+
+
+ // $i = 0;
+
+        // foreach ($lines as $index => $fields) {
+
+        //     if ($index > 0) {
+
+        //         // Process each product line from CSV
+        //         $productID = $fields[0];
+
+        //         if (in_array($productID, $rowsCollectId)) {
+        //             // Update existing product
+        //             $result = $this->productRepository->deletePdo($productID);
+
+        //             if ($result) {
+        //                 $this->info("Deleted existing product with ID $productID.");
+        //             } else {
+        //                 $this->error("Error deleting product with ID $productID.");
+        //             }
+        //         }
+
+        //         // Insert new or update product
+
+        //         $result = $this->productRepository->insertOrUpdatePdo($fields);
+        //         if ($result) {
+        //             $i++;
+        //         }
+        //     }
+        // }

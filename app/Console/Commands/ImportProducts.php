@@ -12,8 +12,10 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use App\Interfaces\IProductRepository;
+use App\Jobs\ImportProductJob;
 
 use function PHPUnit\Framework\fileExists;
+use function PHPUnit\Framework\isEmpty;
 
 class ImportProducts extends Command
 {
@@ -27,6 +29,7 @@ class ImportProducts extends Command
      */
     protected $description = 'Imports products into database';
 
+    protected $i = 0;
     /**
      * @return void
      */
@@ -45,6 +48,8 @@ class ImportProducts extends Command
         $lines = $this->readFile('products-test.csv');
 
         $collectionLines = new Collection($lines);
+        $collectionLinesChunck = $collectionLines->chunk(50);
+        // dd($collectionLinesChunck->count());
         $collectionLinesId = $collectionLines->pluck(0)->toArray();
 
         $query = $this->productRepository->getAllPdo();
@@ -53,38 +58,38 @@ class ImportProducts extends Command
         $rowsCollect = new Collection($rows);
         $rowsCollectId = $rowsCollect->pluck('id')->toArray();
 
-        $i = 0;
+        $collectionLinesChunck->each(function ($chunk) use ($rowsCollectId, $collectionLinesId) {
 
-        foreach ($lines as $index => $fields) {
+            $arrayIds = array_intersect($collectionLinesId, $rowsCollectId);
 
-            if ($index > 0) {
+            ImportProductJob::dispatch($arrayIds)->onQueue('insertUpdateProduct');
+            //dispatch Job
 
-                // Process each product line from CSV
-                $productID = $fields[0];
+            if (!empty($arrayIds)) {
 
-                if (in_array($productID, $rowsCollectId)) {
-                    // Update existing product
-                    $result = $this->productRepository->deletePdo($productID);
+                $result = $this->productRepository->deletePdo($arrayIds);
 
-                    if ($result) {
-                        $this->info("Deleted existing product with ID $productID.");
-                    } else {
-                        $this->error("Error deleting product with ID $productID.");
-                    }
-                }
-
-                // Insert new or update product
-
-                $result = $this->productRepository->insertOrUpdatePdo($fields);
                 if ($result) {
-                    $i++;
+                    $this->info("Deleted existing product with ID.");
+                } else {
+                    $this->error("Error deleting product with ID.");
                 }
             }
-        }
+
+            $chunk->each(function ($fields) {
+
+                // dispatch Job
+                $result = $this->productRepository->insertOrUpdatePdo($fields);
+
+                if ($result) {
+                    $this->i++;
+                }
+            });
+        });
 
         // Soft delete products no longer in the file
         $this->productRepository->softDeletePdo($rowsCollectId, $collectionLinesId);
-        $this->info('Updated ' . $i . ' products.');
+        $this->info('Updated ' . $this->i . ' products.');
     }
 
     public function readFile($fileName)
@@ -100,7 +105,7 @@ class ImportProducts extends Command
 
         if (file_exists($fileName)) {
             $csvData = array_map('str_getcsv', file($fileName));
-
+            array_shift($csvData);
             return $csvData;
         } else {
             die("The file $fileName does not exist or cannot be read.");
