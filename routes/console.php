@@ -9,5 +9,5 @@ use Illuminate\Support\Facades\Schedule;
 // })->purpose('Display an inspiring quote')->hourly();
 
 
-Schedule::command('products:sync')->everyTwoSeconds();
-// Schedule::command('products:sync')->dailyAt('12:00');
+// Schedule::command('products:sync')->everyTwoSeconds();
+Schedule::command('products:sync')->dailyAt('12:00');

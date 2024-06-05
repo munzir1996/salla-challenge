@@ -3,6 +3,8 @@
 namespace App\Repository;
 
 use App\Interfaces\IProductRepository;
+use Exception;
+use Illuminate\Support\Facades\DB;
 use PDO;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Http;
@@ -18,7 +20,7 @@ class ProductRepository implements IProductRepository
 
     public function getAllPdo()
     {
-        $query = $this->pdo->prepare("SELECT id from products WHERE deleted_at IS NULL");
+        $query = $this->pdo->prepare("SELECT id, status from products WHERE deleted_at IS NULL");
         $result = $query->execute();
 
         return $query;
@@ -33,11 +35,9 @@ class ProductRepository implements IProductRepository
         return $result;
     }
 
-    public function softDeletePdo($rowsCollectId, $collectionLinesId)
+    public function softDeletePdo($productArrayIds)
     {
         // Implement the soft delete logic here
-        $productArrayIds = array_diff($rowsCollectId, $collectionLinesId);
-
         if (!empty($productArrayIds)) {
             foreach ($productArrayIds as $rowProductId) {
                 $query = $this->pdo->prepare("UPDATE products SET deleted_at = NOW(), delete_hint = ? WHERE id = ?");
@@ -69,15 +69,26 @@ class ProductRepository implements IProductRepository
         if ($response->ok()) {
             return $products;
         }
+
+        return $response->badRequest();
     }
 
     public function insertOrUpdateApi($product)
     {
+        try {
+            $this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-        $query = $this->pdo->prepare("UPDATE products SET name=?, price=?, variations=? WHERE id=? AND deleted_at IS NULL");
+            $this->pdo->beginTransaction();
+            $query = $this->pdo->prepare("UPDATE products SET name=?, price=?, variations=? WHERE id=? AND deleted_at IS NULL");
 
-        $result = $query->execute([($product['name'] ?? ''), ($product['price'] ?? ''), (json_encode($product['variations']) ?? ''), $product['id']]);
+            $result = $query->execute([($product['name'] ?? ''), ($product['price'] ?? ''), (json_encode($product['variations']) ?? ''), $product['id']]);
 
-        return $result;
+            $this->pdo->commit();
+            return $result;
+        } catch (Exception $e) {
+            $this->pdo->rollBack();
+            echo "Failed: " . $e->getMessage();
+            return false;
+        }
     }
 }

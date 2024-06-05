@@ -9,7 +9,7 @@ interface IProductRepository
 
     public function deletePdo($id);
 
-    public function softDeletePdo($rowsCollectId, $collectionLinesId);
+    public function softDeletePdo($productArrayIds);
 
     public function insertOrUpdatePdo($fields);
 

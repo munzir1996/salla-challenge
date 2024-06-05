@@ -7,18 +7,18 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use App\Repository\ProductRepository;
+use Illuminate\Bus\Batchable;
 
-class ImportProductJob implements ShouldQueue
+class customerJob implements ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
-    protected $arrayIds;
+    use Batchable, Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+
     /**
      * Create a new job instance.
      */
-    public function __construct($arrayIds, protected ProductRepository $productRepository)
+    public function __construct()
     {
-        $this->arrayIds = $arrayIds;
+        //
     }
 
     /**
@@ -26,6 +26,11 @@ class ImportProductJob implements ShouldQueue
      */
     public function handle(): void
     {
-        //
+        if ($this->batch()->cancelled()) {
+            // Determine if the batch has been cancelled...
+
+            return;
+        }
+        sleep(2);
     }
 }

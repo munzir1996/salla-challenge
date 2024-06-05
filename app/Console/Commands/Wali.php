@@ -2,38 +2,39 @@
 
 namespace App\Console\Commands;
 
+use App\Repository\ProductRepository;
 use App\Rules\excelFileRule;
 use Illuminate\Console\Command;
 use PDO;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
+use App\Interfaces\IProductRepository;
+use App\Jobs\DeleteProductJob;
+use App\Jobs\InsertOrUpdateProductJob;
+use App\Jobs\SoftDeleteProductJob;
+
+use function PHPUnit\Framework\fileExists;
+use function PHPUnit\Framework\isEmpty;
 
 class Wali extends Command
 {
     /**
      * @var string
      */
-    protected $signature = 'import:test';
+    protected $signature = 'import:wali';
 
     /**
      * @var string
      */
     protected $description = 'Imports products into database';
 
-    protected $deletionReason = 'Synchronization issue';
-
-    protected $pdo;
-
+    protected $i = 0;
     /**
      * @return void
      */
-    public function __construct()
+    public function __construct(protected ProductRepository $productRepository)
     {
         parent::__construct();
-
-        $this->pdo = new PDO('mysql:dbname=coding_challenge;host=127.0.0.1;port=3306', 'root', '');
     }
 
     /**
@@ -41,68 +42,65 @@ class Wali extends Command
      */
     public function handle()
     {
+        // Rename from products1.csv into products2.csv to import a file with slightly different data
         $lines = $this->readFile('products-test.csv');
 
-        if (!$lines) {
-            $this->error("File reading failed or file is empty.");
-            return;
-        }
-
         $collectionLines = new Collection($lines);
+        $collectionLinesChunck = $collectionLines->chunk(50);
         $collectionLinesId = $collectionLines->pluck(0)->toArray();
 
-        $query = $this->pdo->prepare("SELECT id from products WHERE deleted_at IS NULL");
-        $query->execute();
+        $query = $this->productRepository->getAllPdo();
         $rows = $query->fetchAll(PDO::FETCH_ASSOC);
 
         $rowsCollect = new Collection($rows);
         $rowsCollectId = $rowsCollect->pluck('id')->toArray();
 
-        $i = 0;
+        $deletedProductsIds = $rowsCollect->filter(function ($value, int $key) {
+            return $value['status'] == 'deleted';
+        })->pluck('id');
 
-        foreach ($lines as $index => $fields) {
+        $collectionLinesChunck->each(function ($chunk) use ($rowsCollectId, $collectionLinesId) {
 
-            if ($index > 0) {
-                // Process each product line from CSV
-                $productID = $fields[0];
+            $arrayIds = array_intersect($collectionLinesId, $rowsCollectId);
+            //dispatch Job
+            DeleteProductJob::dispatch($arrayIds)->onQueue('deletePdo');
+            //dispatch Job
 
-                if (in_array($productID, $rowsCollectId)) {
-                    // Update existing product
-                    $query = $this->pdo->prepare('DELETE FROM products WHERE id = ?');
-                    $result = $query->execute([$productID]);
+            // if (!empty($arrayIds)) {
 
-                    if ($result) {
-                        $this->info("Deleted existing product with ID $productID.");
-                    } else {
-                        $this->error("Error deleting product with ID $productID.");
-                    }
-                }
+            //     $result = $this->productRepository->deletePdo($arrayIds, $this->productRepository);
 
-                // Insert new or update product
-                $query = $this->pdo->prepare('INSERT INTO products (id, name, sku, price, currency, variations, quantity, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                    ON DUPLICATE KEY UPDATE name=VALUES(name), sku=VALUES(sku), price=VALUES(price), currency=VALUES(currency), variations=VALUES(variations), quantity=VALUES(quantity), status=VALUES(status)');
-                $result = $query->execute([$fields[0], ($fields[1] ?? ''), ($fields[2] ?? ''), ($fields[3] ?? ''), ($fields[4] ?? ''), ($fields[5] ?? ''), ($fields[6] ?? ''), ($fields[7] ?? '')]);
+            //     if ($result) {
+            //         $this->info("Deleted existing product with ID.");
+            //     } else {
+            //         $this->error("Error deleting product with ID.");
+            //     }
+            // }
 
-                if ($result) {
-                    $i++;
-                }
-            }
-        }
+
+            $chunk->each(function ($fields) {
+
+                // dispatch Job
+                InsertOrUpdateProductJob::dispatch($fields)->onQueue('insertUpdatePdo');
+                //dispatch Job
+                // $result = $this->productRepository->insertOrUpdatePdo($fields);
+
+                // if ($result) {
+                //     $this->i++;
+                // }
+            });
+        });
 
         // Soft delete products no longer in the file
-        foreach ($rowsCollectId as $productId) {
-            if (!in_array($productId, $collectionLinesId)) {
-                $query = $this->pdo->prepare("UPDATE products SET deleted_at = NOW(), delete_hint = ? WHERE id = ?");
-                $result = $query->execute([$this->deletionReason, $productId]);
-                if ($result) {
-                    $this->info("Soft Deleted product with ID $productId due to synchronization issue.");
-                } else {
-                    $this->error("Error soft deleting product with ID $productId.");
-                }
-            }
-        }
 
-        $this->info('Updated ' . $i . ' products.');
+        $productArrayIds = collect(array_diff($rowsCollectId, $collectionLinesId));
+        $allProductArrayIds = $productArrayIds->merge($deletedProductsIds);
+        // dd($allProductArrayIds);
+        //dispatch Job
+        SoftDeleteProductJob::dispatch($allProductArrayIds)->onQueue('softDeletePdo');
+        //dispatch Job
+        // $this->productRepository->softDeletePdo($allProductArrayIds);
+        $this->info('Updated ' . $this->i . ' products.');
     }
 
     public function readFile($fileName)
@@ -113,49 +111,14 @@ class Wali extends Command
             'file' => ['required', new excelFileRule],
         ]);
 
-        if ($validator->fails()) {
-            $this->error("File validation failed.");
-            return false;
-        }
+        $validator->validate();
 
         if (file_exists($fileName)) {
-            return array_map('str_getcsv', file($fileName));
+            $csvData = array_map('str_getcsv', file($fileName));
+            array_shift($csvData);
+            return $csvData;
         } else {
-            $this->error("The file $fileName does not exist or cannot be read.");
-            return false;
+            die("The file $fileName does not exist or cannot be read.");
         }
     }
 }
-
-
-
-
-
- // $i = 0;
-
-        // foreach ($lines as $index => $fields) {
-
-        //     if ($index > 0) {
-
-        //         // Process each product line from CSV
-        //         $productID = $fields[0];
-
-        //         if (in_array($productID, $rowsCollectId)) {
-        //             // Update existing product
-        //             $result = $this->productRepository->deletePdo($productID);
-
-        //             if ($result) {
-        //                 $this->info("Deleted existing product with ID $productID.");
-        //             } else {
-        //                 $this->error("Error deleting product with ID $productID.");
-        //             }
-        //         }
-
-        //         // Insert new or update product
-
-        //         $result = $this->productRepository->insertOrUpdatePdo($fields);
-        //         if ($result) {
-        //             $i++;
-        //         }
-        //     }
-        // }
