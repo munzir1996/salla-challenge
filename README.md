@@ -60,6 +60,8 @@ the command is scheduled daily at 12am.
 In order to use the database queue driver and Laravel's job batching feature , you will need a database table to hold the jobs.
 run the following command.
 
+```artisan
 php artisan make:queue-table
 php artisan make:queue-batches-table
 php artisan migrate
+```
