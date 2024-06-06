@@ -8,6 +8,8 @@ use App\Jobs\DeleteProductJob;
 use App\Jobs\InsertOrUpdateProductJob;
 use App\Jobs\SoftDeleteProductJob;
 use App\Repository\ProductRepository;
+use Tests\Unit\ProductApiTest;
+use Tests\Unit\ReadFileTest;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -26,9 +28,6 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bindMethod(SoftDeleteProductJob::class . '@handle', function ($job, $app) {
             return $job->handle($app->make(ProductRepository::class));
         });
-        // $this->app->bind(UserService::class, function ($app) {
-        //     return new UserService($app->make(UserRepositoryInterface::class));
-        // });
     }
 
     /**

@@ -39,13 +39,17 @@ class ProductsSync extends Command
      */
     public function handle()
     {
+        // Read the products from the API endpoint
         $products = $this->productRepository->getApi('https://5fc7a13cf3c77600165d89a8.mockapi.io/api/v5/products');
 
+        // If there is products in API endpoint
         if ($products) {
 
+            // Fetch all the products from the DB
             $query = $this->productRepository->getAllPdo();
             $rows = $query->fetchAll(PDO::FETCH_ASSOC);
 
+            // Convert rows to collection
             $rowsCollect = new Collection($rows);
             $rowsCollectId = $rowsCollect->pluck('id')->toArray();
 
@@ -55,14 +59,17 @@ class ProductsSync extends Command
 
                 $productID = $product['id'];
 
+                // If API products Id is found in the Products DB
                 if (in_array($productID, $rowsCollectId)) {
 
+                    // Insert Or update the products DB
                     $result = $this->productRepository->insertOrUpdateApi($product);
+                    // Dispatch a job to specific intrested users after the DB commit
                     if ($result) {
                         $batch = Bus::batch([
                             new customerJob(),
                             new warehouseJob(),
-                            new apiUpdateJob(),
+                            new apiUpdateJob()
                         ])->dispatch();
                         $this->info("Updated existing product with ID $productID.");
                         $i++;
