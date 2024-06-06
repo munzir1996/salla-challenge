@@ -36,7 +36,9 @@ which makes it easier to maintain and test the application
 
 To import products from Excel to Products table run the following command
 
+```artisan
 php artisan command import:products
+```
 
 note:
 the excel file should be in the project root, the command will run products-test as an example
